@@ -45,4 +45,16 @@ describe('HUB_BACK_LINK_CSS', () => {
   it('includes a dark-mode variant', () => {
     expect(HUB_BACK_LINK_CSS).toContain('prefers-color-scheme: dark');
   });
+  // Regression: in v1.2.0 the chip overlaid app titles (reported 2026-
+  // 06-08). v1.2.1 reserves vertical space via body padding-top so any
+  // opt-in consumer automatically gets a non-overlapping layout.
+  it('reserves body padding-top so the fixed chip never overlays content', () => {
+    expect(HUB_BACK_LINK_CSS).toMatch(/body\s*{[^}]*padding-top:/);
+  });
+  it('uses env(safe-area-inset-top) so the chip clears the iPhone notch', () => {
+    expect(HUB_BACK_LINK_CSS).toContain('env(safe-area-inset-top');
+  });
+  it('shrinks padding-top on narrow viewports', () => {
+    expect(HUB_BACK_LINK_CSS).toMatch(/@media \(max-width: 600px\)[\s\S]*?body[^}]*padding-top/);
+  });
 });
