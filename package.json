@@ -1,14 +1,15 @@
 {
   "name": "@falkizar/pages-utils",
-  "version": "1.1.1",
-  "description": "Cloudflare Pages Functions utilities for Falkizar apps: HTTP helpers, preview-branch write guard, build-time version metadata.",
+  "version": "1.2.0",
+  "description": "Cloudflare Pages Functions utilities for Falkizar apps: HTTP helpers, preview-branch write guard, build-time version metadata, version-footer renderer, hub back-link, client-side admin upgrade.",
   "type": "module",
   "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./build": "./src/build.ts"
+    "./build": "./src/build.ts",
+    "./client": "./src/client.ts"
   },
   "files": ["src/"],
   "scripts": {

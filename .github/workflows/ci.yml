@@ -1,0 +1,46 @@
+# CI for @falkizar/pages-utils.
+#
+# Runs on every PR and every push to main. Required by main's branch
+# protection ruleset (status check: "test"). Keep the job name stable —
+# the ruleset references it by string.
+#
+# What it does:
+#   1. checkout, set up Node from .nvmrc, restore npm cache
+#   2. npm ci  — deterministic install from lockfile
+#   3. tsc --noEmit  — typecheck the package + tests
+#   4. npm test  — vitest run
+#
+# Why no build step: the package ships TypeScript directly (`main` and
+# `types` in package.json both point at `src/index.ts`). Consumers
+# bundle through their own pipeline.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run tests
+        run: npm test

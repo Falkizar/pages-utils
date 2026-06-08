@@ -6,7 +6,7 @@
  * consumer (web-hub) needed them. Sibling package to
  * @falkizar/access-middleware (which owns the auth chain).
  *
- * Three surfaces:
+ * Surfaces:
  *
  * 1. HTTP helpers — `json` / `jsonError` / `readJson` / `HttpError` /
  *    `handler`. Every `/api/*` route in a Falkizar app should be
@@ -17,8 +17,18 @@
  *
  * 3. Build-time version metadata — `AppVersion`, `DependencyVersion`,
  *    `relativeTime`, `commitUrl`, `dependencyUrl`. Standardizes the
- *    "what version is deployed?" display every Falkizar app shows to
- *    admins.
+ *    "what version is deployed?" display every Falkizar app shows.
+ *
+ * 4. Version-footer renderer — `renderVersionFooterHtml(version)`.
+ *    Canonical cross-app version-display block (server-rendered,
+ *    progressively-upgraded admin links).
+ *
+ * 5. Hub back-link renderer — `renderHubBackLinkHtml()`. The
+ *    "← Falkizar" anchor every non-hub app surfaces top-of-body.
+ *
+ * Browser-only client helpers (`upgradeAdminFromMe`) live behind the
+ * `/client` subpath so they can never leak into a Worker bundle.
+ * Build-time generators (`generateVersionModule`) live behind `/build`.
  *
  * See web-hub/docs/app-baseline.md for the canonical usage write-up
  * and web-hub/docs/adding-a-new-app.md for the recipe.
@@ -42,3 +52,15 @@ export {
   dependencyUrl,
 } from './version';
 export type { AppVersion, DependencyVersion } from './version';
+
+export {
+  renderVersionFooterHtml,
+  VERSION_FOOTER_CSS,
+} from './version-footer';
+export type { RenderVersionFooterOptions } from './version-footer';
+
+export {
+  renderHubBackLinkHtml,
+  HUB_BACK_LINK_CSS,
+} from './hub-back';
+export type { RenderHubBackLinkOptions } from './hub-back';
