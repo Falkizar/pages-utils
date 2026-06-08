@@ -20,7 +20,7 @@ The consumer apps are private (`web-hub`, `kids-library`, `budget-categorizer` a
 ## Install
 
 ```bash
-npm install github:Falkizar/pages-utils#v1.2.2
+npm install github:Falkizar/pages-utils#v1.2.3
 ```
 
 Pin to a tag, never to `main`. See [CHANGELOG.md](./CHANGELOG.md) for what's in each tag.

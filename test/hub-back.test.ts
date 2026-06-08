@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderHubBackLinkHtml, HUB_BACK_LINK_CSS } from '../src/hub-back';
+import { renderHubBackLinkHtml, HUB_BACK_LINK_CSS, isSafeHubUrl } from '../src/hub-back';
 
 describe('renderHubBackLinkHtml', () => {
   it('emits a same-tab link to falkizar.com by default', () => {
@@ -49,6 +49,113 @@ describe('renderHubBackLinkHtml', () => {
     const spacerAt = html.indexOf('class="hub-back-spacer"');
     expect(chipAt).toBeGreaterThan(-1);
     expect(spacerAt).toBeGreaterThan(chipAt);
+  });
+
+  // v1.2.3 URL-scheme validation (closes 2026-06-08 security review I1).
+  it('replaces unsafe javascript: hubUrl with the default', () => {
+    const html = renderHubBackLinkHtml({ hubUrl: 'javascript:alert(1)' });
+    expect(html).not.toContain('javascript:');
+    expect(html).toContain('href="https://falkizar.com"');
+  });
+
+  it('replaces unsafe data: hubUrl with the default', () => {
+    const html = renderHubBackLinkHtml({ hubUrl: 'data:text/html,<script>x</script>' });
+    expect(html).not.toContain('data:');
+    expect(html).not.toContain('<script>x');
+    expect(html).toContain('href="https://falkizar.com"');
+  });
+
+  it('replaces unsafe vbscript: hubUrl with the default', () => {
+    const html = renderHubBackLinkHtml({ hubUrl: 'vbscript:msgbox(1)' });
+    expect(html).not.toContain('vbscript:');
+    expect(html).toContain('href="https://falkizar.com"');
+  });
+
+  it('accepts a relative path hubUrl (rare but legal)', () => {
+    const html = renderHubBackLinkHtml({ hubUrl: '/home' });
+    expect(html).toContain('href="/home"');
+  });
+
+  it('accepts a fragment-only hubUrl', () => {
+    const html = renderHubBackLinkHtml({ hubUrl: '#top' });
+    expect(html).toContain('href="#top"');
+  });
+
+  it('accepts http:// for local dev', () => {
+    const html = renderHubBackLinkHtml({ hubUrl: 'http://localhost:4321' });
+    expect(html).toContain('href="http://localhost:4321"');
+  });
+
+  it('replaces an empty hubUrl with the default', () => {
+    const html = renderHubBackLinkHtml({ hubUrl: '' });
+    expect(html).toContain('href="https://falkizar.com"');
+  });
+
+  it('handles a hubUrl with leading whitespace + scheme injection attempt', () => {
+    // Browsers happily strip leading whitespace and treat ` javascript:...`
+    // as `javascript:...`. The validator trims before parsing.
+    const html = renderHubBackLinkHtml({ hubUrl: '  javascript:alert(1)' });
+    expect(html).not.toContain('javascript:');
+    expect(html).toContain('href="https://falkizar.com"');
+  });
+});
+
+describe('isSafeHubUrl', () => {
+  it('accepts canonical https:// URLs', () => {
+    expect(isSafeHubUrl('https://falkizar.com')).toBe(true);
+    expect(isSafeHubUrl('https://staging.falkizar.com/path?q=1')).toBe(true);
+  });
+
+  it('accepts http:// URLs (for local dev / tests)', () => {
+    expect(isSafeHubUrl('http://localhost:4321')).toBe(true);
+  });
+
+  it('accepts relative paths (/, ./, ../, #)', () => {
+    expect(isSafeHubUrl('/')).toBe(true);
+    expect(isSafeHubUrl('/home')).toBe(true);
+    expect(isSafeHubUrl('./sibling')).toBe(true);
+    expect(isSafeHubUrl('../parent')).toBe(true);
+    expect(isSafeHubUrl('#anchor')).toBe(true);
+  });
+
+  it('rejects javascript: URLs (XSS via clickable link)', () => {
+    expect(isSafeHubUrl('javascript:alert(1)')).toBe(false);
+    expect(isSafeHubUrl('JAVASCRIPT:alert(1)')).toBe(false);   // case-insensitive
+  });
+
+  it('rejects data: URLs (can carry script in SVG / text/html)', () => {
+    expect(isSafeHubUrl('data:text/html,<script>x</script>')).toBe(false);
+    expect(isSafeHubUrl('data:image/svg+xml,<svg onload="x">')).toBe(false);
+  });
+
+  it('rejects vbscript:, file:, and other non-web schemes', () => {
+    expect(isSafeHubUrl('vbscript:msgbox(1)')).toBe(false);
+    expect(isSafeHubUrl('file:///etc/passwd')).toBe(false);
+    expect(isSafeHubUrl('chrome://settings')).toBe(false);
+    expect(isSafeHubUrl('mailto:a@b.c')).toBe(false);
+  });
+
+  it('rejects empty string + null-ish input', () => {
+    expect(isSafeHubUrl('')).toBe(false);
+    expect(isSafeHubUrl(null as unknown as string)).toBe(false);
+    expect(isSafeHubUrl(undefined as unknown as string)).toBe(false);
+  });
+
+  it('trims leading whitespace before parsing (browsers do)', () => {
+    expect(isSafeHubUrl('  javascript:x')).toBe(false);
+    expect(isSafeHubUrl('  https://falkizar.com')).toBe(true);
+  });
+
+  // "not a url at all" actually parses successfully against the dummy base
+  // as a relative path → https://falkizar.com/not%20a%20url%20at%20all.
+  // That's safe (same-origin path) and matches what a browser would do with
+  // <a href="not a url"> on https://falkizar.com. So we don't test for
+  // rejection of garbage that happens to be a legal relative path.
+
+  it('accepts protocol-relative URLs (inherits page scheme)', () => {
+    // //host/path inherits the page protocol; on falkizar.com that's
+    // always https. Treating these as safe matches browser behavior.
+    expect(isSafeHubUrl('//falkizar.com/path')).toBe(true);
   });
 });
 
