@@ -20,10 +20,10 @@ The consumer apps are private (`web-hub`, `kids-library`, `budget-categorizer` a
 ## Install
 
 ```bash
-npm install github:Falkizar/pages-utils#v1.2.1
+npm install github:Falkizar/pages-utils#v1.2.2
 ```
 
-Pin to a tag, never to `main`.
+Pin to a tag, never to `main`. See [CHANGELOG.md](./CHANGELOG.md) for what's in each tag.
 
 ## Surfaces
 
@@ -104,6 +104,52 @@ export default defineConfig({ site: 'https://my-app.falkizar.com' });
 
 The `/build` subpath is intentionally separate so the Node-only helper can never leak into runtime bundles. Add `src/_version-generated.ts` to `.gitignore` — every build regenerates it.
 
+### Version footer + hub back-link (v1.2.x)
+
+`renderVersionFooterHtml(version, opts?)` is the canonical "what's deployed?" footer every Falkizar app renders. Default mode emits a dual-span layout that a `body.is-admin` CSS toggle (set via `upgradeAdminFromMe` from `/client`) flips between non-admin plain text and admin clickable GitHub commit links. Pages-Function callers that already know `isAdmin` pass `{ isAdmin: true | false }` to skip the dual-render.
+
+`renderHubBackLinkHtml(opts?)` emits the "← Falkizar" anchor that every non-hub app surfaces top-of-body, plus the spacer that reserves vertical space. Both elements come back in one HTML fragment.
+
+```astro
+---
+import {
+  renderVersionFooterHtml, VERSION_FOOTER_CSS,
+  renderHubBackLinkHtml, HUB_BACK_LINK_CSS,
+} from '@falkizar/pages-utils';
+import { APP_VERSION } from '../scripts/_version-generated';
+
+const versionFooterHtml = renderVersionFooterHtml(APP_VERSION);
+const hubBackHtml = renderHubBackLinkHtml();
+---
+<html>
+  <head>
+    <style set:html={HUB_BACK_LINK_CSS + VERSION_FOOTER_CSS}></style>
+    {/* other head stuff */}
+  </head>
+  <body>
+    <Fragment set:html={hubBackHtml} />   {/* chip + spacer; spacer pushes content down */}
+    <slot />
+    <Fragment set:html={versionFooterHtml} />
+    <script>
+      import { upgradeAdminFromMe } from '@falkizar/pages-utils/client';
+      upgradeAdminFromMe();
+    </script>
+  </body>
+</html>
+```
+
+### Client-side admin upgrade (`/client` subpath)
+
+```ts
+import { upgradeAdminFromMe } from '@falkizar/pages-utils/client';
+
+upgradeAdminFromMe();                                    // default: GET /api/me, set body.is-admin
+upgradeAdminFromMe({ endpoint: '/api/whoami' });         // custom endpoint
+upgradeAdminFromMe({ isAdmin: (j) => j.role === 'owner' }); // custom predicate
+```
+
+Fire-and-forget. Failures (no `/api/me`, network down, malformed JSON) are silently swallowed; the page keeps the non-admin view as the safe fallback.
+
 ## Type extension pattern
 
 For apps using both packages:
@@ -122,16 +168,32 @@ interface Env extends AccessEnv, BranchGuardEnv {
 
 ## Releasing
 
-```bash
-npm test
-git commit -am "..."
-npm version <major|minor|patch>
-git push --follow-tags
-```
+This repo follows the org-wide [repo-norms](https://github.com/Falkizar/web-hub/blob/main/docs/repo-norms.md) workflow. Releases are PR-then-tag:
 
-Consumers update their `package.json` to the new tag explicitly.
+1. Open the release PR from a worktree on `release/vX.Y.Z`:
+   - Bump `version` in `package.json`
+   - Update `CHANGELOG.md` with the new section
+   - Update README install snippet if pinning
+2. CI (`.github/workflows/ci.yml`) must go green. The main-branch ruleset blocks merge until the `test` check passes on the synced HEAD.
+3. Merge via squash.
+4. **From your main checkout**, tag the merged commit and push:
+   ```bash
+   git fetch origin
+   git checkout main && git pull
+   git tag -a vX.Y.Z -m "vX.Y.Z — <one-line summary>"
+   git push origin vX.Y.Z
+   ```
+5. The tag ruleset (`refs/tags/v*`, ruleset id `17407830`) blocks deletion and force-update. Once pushed, that SHA is permanent. Consumer pins can trust it.
+6. Update consumer apps via follow-on PRs.
+
+Semver:
+- **Patch** (`1.2.0 → 1.2.1`): bug fix, no API change
+- **Minor** (`1.2.0 → 1.3.0`): additive API change, no breaks
+- **Major** (`1.2.0 → 2.0.0`): breaking change. Bump consumers ahead of time and have a migration note in the PR body.
 
 ## See also
 
 - [`@falkizar/access-middleware`](https://github.com/Falkizar/access-middleware) — JWT-verifying Pages middleware + per-group authorization helpers
 - [`Falkizar/web-hub/docs/app-baseline.md`](https://github.com/Falkizar/web-hub/blob/main/docs/app-baseline.md) — the mandatory baselines this package supports
+- [`CHANGELOG.md`](./CHANGELOG.md) — what's in each tagged release
+- [`Falkizar/web-hub/docs/repo-norms.md`](https://github.com/Falkizar/web-hub/blob/main/docs/repo-norms.md) — branch protection, CI, release flow this repo follows
