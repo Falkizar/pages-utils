@@ -33,36 +33,54 @@ export interface RenderHubBackLinkOptions {
 }
 
 /**
- * Render the back-to-hub anchor. Top-of-body placement assumed.
+ * Render the back-to-hub anchor PLUS a sibling `<div class="hub-back-spacer">`
+ * that reserves vertical space for the fixed-positioned chip.
+ *
+ * The spacer is a normal-flow element. Whatever comes after it in the
+ * body gets naturally pushed down by its height. That side-steps the
+ * fragility of body-level padding rules: consumer stylesheets that
+ * reset body padding (e.g. `html, body { padding: 0; }`) can't undo
+ * the spacer's height because there's no padding to reset.
+ *
+ * Place the rendered fragment as the FIRST child of body so the spacer
+ * pushes the rest of the page down rather than something else.
  */
 export function renderHubBackLinkHtml(opts: RenderHubBackLinkOptions = {}): string {
   const url = opts.hubUrl ?? HUB_URL;
   const label = opts.label ?? '← Falkizar';
   const target = opts.newTab ? ' target="_blank" rel="noopener"' : '';
-  return `<a class="hub-back" href="${escapeAttr(url)}"${target}>${escapeHtml(label)}</a>`;
+  return `<a class="hub-back" href="${escapeAttr(url)}"${target}>${escapeHtml(label)}</a><div class="hub-back-spacer" aria-hidden="true"></div>`;
 }
 
 /**
  * The minimum CSS the back-link needs. The chip is fixed top-left so it
  * stays accessible from anywhere in the app — including deep in a
- * scrolled view. Body gets a top padding equal to the chip's footprint
- * so app content (titles, headers) is never covered. Apps that want a
- * different look can override these rules in their own stylesheet
- * (later cascade wins) or drop this entirely.
+ * scrolled view. A sibling spacer (`.hub-back-spacer`) in normal flow
+ * reserves vertical space so the chip never overlays app content.
  *
- * The padding-top is intentionally part of THIS constant rather than
- * left to each app: dropping the constant in without space-reservation
- * caused the chip to overlay app titles in kids-library and budget
- * (reported 2026-06-08). Including it here means any app that opts
- * into the hub-back automatically gets the space too. The web-hub
- * (which IS the hub and doesn't render this link) doesn't include
- * the constant and therefore isn't affected.
+ * Why the spacer approach instead of `body { padding-top: ... }`:
+ * v1.2.1 set body padding-top inside this constant. That worked on apps
+ * whose styles didn't otherwise touch body padding (web-hub, budget),
+ * but kids-library has `html, body { padding: 0; }` in its app.css —
+ * a shorthand reset that zeros all four sides. Because Astro emits the
+ * linked stylesheet AFTER the inline <style set:html={...}> block,
+ * the consumer's reset always won the cascade and the chip overlaid
+ * the app title.
+ *
+ * Using a sibling element in flow eliminates the cascade dependency
+ * entirely: there's no body padding to reset. The chip floats fixed
+ * on top; the spacer takes height in flow. Both are owned by this
+ * constant + this renderer, so consumer CSS can't accidentally
+ * defeat them.
  *
  * Mobile uses env(safe-area-inset-top) so the chip clears the iPhone
  * notch / dynamic island when the app is launched as an installed PWA.
  */
-export const HUB_BACK_LINK_CSS = `body {
-  padding-top: calc(2.75rem + env(safe-area-inset-top, 0px));
+export const HUB_BACK_LINK_CSS = `.hub-back-spacer {
+  display: block;
+  width: 100%;
+  height: calc(2.75rem + env(safe-area-inset-top, 0px));
+  pointer-events: none;
 }
 .hub-back {
   position: fixed;
@@ -91,7 +109,7 @@ export const HUB_BACK_LINK_CSS = `body {
   }
 }
 @media (max-width: 600px) {
-  body { padding-top: calc(2.5rem + env(safe-area-inset-top, 0px)); }
+  .hub-back-spacer { height: calc(2.5rem + env(safe-area-inset-top, 0px)); }
 }
 `;
 
