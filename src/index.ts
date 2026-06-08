@@ -62,5 +62,6 @@ export type { RenderVersionFooterOptions } from './version-footer';
 export {
   renderHubBackLinkHtml,
   HUB_BACK_LINK_CSS,
+  isSafeHubUrl,
 } from './hub-back';
 export type { RenderHubBackLinkOptions } from './hub-back';

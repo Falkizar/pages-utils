@@ -10,6 +10,16 @@ _Nothing in flight._
 
 ---
 
+## [1.2.3] — 2026-06-08
+
+### Added
+- `isSafeHubUrl(url)` — exported URL-scheme validator. Returns `true` only for `http://`, `https://`, protocol-relative `//host/path`, or relative URLs (`/foo`, `./foo`, `../foo`, `#anchor`). Rejects `javascript:`, `data:`, `vbscript:`, `file:`, `mailto:`, anything else.
+
+### Fixed
+- Defense-in-depth: `renderHubBackLinkHtml({ hubUrl })` now runs the caller-supplied URL through `isSafeHubUrl()` and silently falls back to `https://falkizar.com` on rejection. Closes 2026-06-08 security review finding **I1** (the option is part of the package's public API; a future caller wiring user input to `hubUrl` would otherwise get a clickable XSS via `javascript:`). No current caller is affected.
+
+---
+
 ## [1.2.2] — 2026-06-08
 
 ### Fixed
@@ -70,7 +80,8 @@ _Nothing in flight._
   - `guardPreviewWrites(ctx)` — refuses POST/PUT/DELETE/PATCH on non-main Pages preview branches. Method-aware (GET/HEAD/OPTIONS always pass).
   - Version metadata: `AppVersion`, `DependencyVersion` types + pure helpers `relativeTime(iso, now?)`, `commitUrl(version, isAdmin)`, `dependencyUrl(dep, isAdmin)`. Admin-only commit-link gating; private repos = 404 for non-admins.
 
-[Unreleased]: https://github.com/Falkizar/pages-utils/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/Falkizar/pages-utils/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/Falkizar/pages-utils/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/Falkizar/pages-utils/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/Falkizar/pages-utils/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Falkizar/pages-utils/compare/v1.1.1...v1.2.0
