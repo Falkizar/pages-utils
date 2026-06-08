@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { generateVersionModule } from '../src/build';
+import { generateVersionModule, extractNameFromLockKey } from '../src/build';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,6 +7,26 @@ import { join } from 'node:path';
 function mkTmp(): string {
   return mkdtempSync(join(tmpdir(), 'pages-utils-test-'));
 }
+
+describe('extractNameFromLockKey', () => {
+  it('handles scoped packages at the top level', () => {
+    expect(extractNameFromLockKey('node_modules/@falkizar/pages-utils'))
+      .toBe('@falkizar/pages-utils');
+  });
+  it('handles unscoped packages at the top level', () => {
+    expect(extractNameFromLockKey('node_modules/jose')).toBe('jose');
+  });
+  it('returns the deepest nested package', () => {
+    expect(extractNameFromLockKey('node_modules/parent/node_modules/@scope/nested'))
+      .toBe('@scope/nested');
+    expect(extractNameFromLockKey('node_modules/parent/node_modules/leaf'))
+      .toBe('leaf');
+  });
+  it('returns undefined for non-node_modules keys', () => {
+    expect(extractNameFromLockKey('')).toBeUndefined();
+    expect(extractNameFromLockKey('src/index.ts')).toBeUndefined();
+  });
+});
 
 describe('generateVersionModule', () => {
   beforeEach(() => {
@@ -88,26 +108,27 @@ describe('generateVersionModule', () => {
     expect(v.dependencies).toEqual([]);
   });
 
-  it('extracts @falkizar/* deps with commit + repoUrl from package-lock', () => {
+  it('extracts @falkizar/* deps with commit + repoUrl from package-lock (entries WITHOUT name field — real lock format)', () => {
     const dir = mkTmp();
     const lockPath = join(dir, 'package-lock.json');
+    // Real npm lockfiles for github: deps frequently omit `name`. The
+    // helper must parse the key. This is what kids-library + web-hub
+    // actually produce. Regression test for the early bug where the
+    // scope was stripped.
     writeFileSync(lockPath, JSON.stringify({
       name: 'consumer',
       lockfileVersion: 3,
       packages: {
         '': { name: 'consumer', version: '0.1.0' },
         'node_modules/@falkizar/access-middleware': {
-          name: '@falkizar/access-middleware',
           version: '1.0.0',
           resolved: 'git+ssh://git@github.com/Falkizar/access-middleware.git#2478d08f6b397c709860d91215ce228641016f3e',
         },
         'node_modules/@falkizar/pages-utils': {
-          name: '@falkizar/pages-utils',
           version: '1.0.0',
           resolved: 'git+https://github.com/Falkizar/pages-utils.git#abc1234567890abc1234567890abc1234567890a',
         },
         'node_modules/jose': {
-          name: 'jose',
           version: '6.2.3',
           resolved: 'https://registry.npmjs.org/jose/-/jose-6.2.3.tgz',
         },
@@ -139,7 +160,6 @@ describe('generateVersionModule', () => {
       packages: {
         '': { name: 'c', version: '0.0.1' },
         'node_modules/@falkizar/tarball-published': {
-          name: '@falkizar/tarball-published',
           version: '2.0.0',
           resolved: 'https://registry.npmjs.org/@falkizar/tarball-published/-/tarball-published-2.0.0.tgz',
         },
@@ -165,11 +185,11 @@ describe('generateVersionModule', () => {
       lockfileVersion: 3,
       packages: {
         'node_modules/@falkizar/foo': {
-          name: '@falkizar/foo', version: '1.0.0',
+          version: '1.0.0',
           resolved: 'git+ssh://git@github.com/Falkizar/foo.git#' + 'a'.repeat(40),
         },
         'node_modules/@otherorg/bar': {
-          name: '@otherorg/bar', version: '2.0.0',
+          version: '2.0.0',
           resolved: 'git+ssh://git@github.com/otherorg/bar.git#' + 'b'.repeat(40),
         },
       },
@@ -193,11 +213,11 @@ describe('generateVersionModule', () => {
       lockfileVersion: 3,
       packages: {
         'node_modules/@falkizar/zeta': {
-          name: '@falkizar/zeta', version: '1.0.0',
+          version: '1.0.0',
           resolved: 'git+ssh://git@github.com/Falkizar/zeta.git#' + 'a'.repeat(40),
         },
         'node_modules/@falkizar/alpha': {
-          name: '@falkizar/alpha', version: '1.0.0',
+          version: '1.0.0',
           resolved: 'git+ssh://git@github.com/Falkizar/alpha.git#' + 'b'.repeat(40),
         },
       },

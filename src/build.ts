@@ -134,11 +134,12 @@ function resolveDependencies(
 
   for (const [key, entry] of Object.entries<any>(packages)) {
     if (!entry || typeof entry !== 'object') continue;
-    // package-lock v3 keys are paths like "node_modules/@falkizar/xxx".
-    // Extract the actual package name from `entry.name` if present, else parse the key.
-    const name: string | undefined = entry.name ?? (key.startsWith('node_modules/')
-      ? key.slice('node_modules/'.length).replace(/^.*\/(@[^/]+\/[^/]+|[^/]+)$/, '$1')
-      : undefined);
+    // package-lock v3 keys are paths like "node_modules/@scope/name" or
+    // "node_modules/name", possibly nested ("node_modules/x/node_modules/y").
+    // Prefer entry.name; fall back to parsing the LAST "node_modules/<pkg>"
+    // segment off the key — `pkg` is either "@scope/name" (two path parts)
+    // or "name" (one). Strip everything before the final `node_modules/`.
+    const name: string | undefined = entry.name ?? extractNameFromLockKey(key);
     if (!name || !name.startsWith(trackPrefix)) continue;
     if (seen.has(name)) continue;
     seen.add(name);
@@ -158,6 +159,29 @@ function resolveDependencies(
   // Stable ordering across builds: alphabetical by name.
   out.sort((a, b) => a.name.localeCompare(b.name));
   return out;
+}
+
+/**
+ * Pull the package name out of a package-lock v3 key like:
+ *   "node_modules/@falkizar/pages-utils"              -> "@falkizar/pages-utils"
+ *   "node_modules/something"                          -> "something"
+ *   "node_modules/x/node_modules/@scope/dep"          -> "@scope/dep" (nested)
+ * Returns undefined if the key doesn't look like a node_modules path.
+ */
+/** @internal — exported for tests; not part of the public API. */
+export function extractNameFromLockKey(key: string): string | undefined {
+  const lastIdx = key.lastIndexOf('node_modules/');
+  if (lastIdx < 0) return undefined;
+  const tail = key.slice(lastIdx + 'node_modules/'.length);
+  // Scoped package: keep the @scope/name pair (one slash).
+  if (tail.startsWith('@')) {
+    const parts = tail.split('/');
+    if (parts.length < 2) return undefined;
+    return `${parts[0]}/${parts[1]}`;
+  }
+  // Unscoped: first segment up to a slash (or all of it).
+  const slash = tail.indexOf('/');
+  return slash >= 0 ? tail.slice(0, slash) : tail;
 }
 
 /**

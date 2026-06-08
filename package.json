@@ -1,6 +1,6 @@
 {
   "name": "@falkizar/pages-utils",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Cloudflare Pages Functions utilities for Falkizar apps: HTTP helpers, preview-branch write guard, build-time version metadata.",
   "type": "module",
   "private": true,
