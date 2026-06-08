@@ -4,19 +4,23 @@ Generic Cloudflare Pages Functions utilities for Falkizar apps. Sibling package 
 
 ## Why this exists
 
-Two Falkizar apps (`kids-library` and `web-hub`) both needed the same handful of helpers:
+Multiple Falkizar apps (private to the org) needed the same handful of helpers:
 
 - A `handler()` wrapper for `/api/*` endpoints that turns thrown HttpErrors into JSON responses and surfaces real error messages to the family (the hub is private behind Access; opaque "internal error" toasts cost debug time without buying anyone security).
 - HTTP convenience: `json`, `jsonError`, `readJson`, `HttpError`.
 - A preview-branch write guard so a buggy non-main preview can't corrupt prod data.
 - A standardized "what version is running?" data structure for the admin-visible version display every Falkizar app ships per [app-baseline.md](https://github.com/Falkizar/web-hub/blob/main/docs/app-baseline.md).
+- A `renderVersionFooterHtml(version)` server-side renderer + a `renderHubBackLinkHtml()` for the "← Falkizar" affordance every non-hub app surfaces.
+- A `/client` subpath with `upgradeAdminFromMe()` for progressive admin-view toggling via `/api/me`.
 
 Rather than copy these between repos (and drift), they live here.
+
+The consumer apps are private (`web-hub`, `kids-library`, `budget-categorizer` all live under the Falkizar GitHub org), so README links to their source 404 for non-org viewers — that's expected. Apps the org operates are intentionally internal; this package is public only so Cloudflare Pages build runners can `npm install` it without GitHub PAT plumbing.
 
 ## Install
 
 ```bash
-npm install github:Falkizar/pages-utils#v1.0.0
+npm install github:Falkizar/pages-utils#v1.2.1
 ```
 
 Pin to a tag, never to `main`.
