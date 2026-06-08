@@ -57,7 +57,7 @@ The guard is method-aware: GETs/HEAD/OPTIONS pass through on any branch.
 
 ### Version metadata
 
-The canonical admin-visible "what's deployed?" display uses these types + helpers. Build-time payload generation lives in each app's `astro.config.ts` (per [app-baseline.md](https://github.com/Falkizar/web-hub/blob/main/docs/app-baseline.md)); this package owns the data structures + the pure helpers.
+The canonical admin-visible "what's deployed?" display uses these types + helpers. The build-time generator (next section) writes a typed payload to `_version-generated.ts` at build time; the runtime side then imports it and renders it with these pure helpers.
 
 ```ts
 import {
@@ -66,16 +66,39 @@ import {
   commitUrl,
   dependencyUrl,
 } from '@falkizar/pages-utils';
+import { APP_VERSION } from './_version-generated';
 
-const ver: AppVersion = APP_VERSION;  // imported from _version-generated.ts
-
-const builtAt = relativeTime(ver.commitTime);
-const url = commitUrl(ver, isAdmin);  // null for non-admins; admins get a GitHub link
-const access = ver.dependencies.find((d) => d.name === '@falkizar/access-middleware');
+const builtAt = relativeTime(APP_VERSION.commitTime);
+const url = commitUrl(APP_VERSION, isAdmin);  // null for non-admins; admins get a GitHub link
+const access = APP_VERSION.dependencies.find((d) => d.name === '@falkizar/access-middleware');
 const accessUrl = access ? dependencyUrl(access, isAdmin) : null;
 ```
 
 `AppVersion.dependencies` is intentionally part of the standard payload — every Falkizar app surfaces both its own SHA AND the SHAs of the `@falkizar/*` packages it depends on. The admin gets a one-click supply-chain audit from any Settings tab.
+
+### Build-time generator (Node-only)
+
+Called from each app's `astro.config.ts`. Generates `_version-generated.ts` with the app's commit SHA + tracked `@falkizar/*` package versions.
+
+```ts
+// astro.config.ts
+import { defineConfig } from 'astro/config';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { generateVersionModule } from '@falkizar/pages-utils/build';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+generateVersionModule({
+  repoUrl: 'https://github.com/Falkizar/my-app',
+  outPath: resolve(__dirname, 'src/_version-generated.ts'),
+  packageLockPath: resolve(__dirname, 'package-lock.json'),
+});
+
+export default defineConfig({ site: 'https://my-app.falkizar.com' });
+```
+
+The `/build` subpath is intentionally separate so the Node-only helper can never leak into runtime bundles. Add `src/_version-generated.ts` to `.gitignore` — every build regenerates it.
 
 ## Type extension pattern
 
